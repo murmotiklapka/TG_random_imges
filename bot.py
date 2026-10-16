@@ -33,7 +33,11 @@ def callback_query(call):
 
 
 def send_message():
-    prize_id = manager.get_random_prize()[0]
+    prize = manager.get_random_prize()
+    if prize is None:
+        print("Нет доступных призов в базе данных!")
+        return
+    prize_id = prize[0]
     img = manager.get_prize_img(prize_id)
     manager.mark_prize_used(prize_id)
     hide_img(img)
@@ -43,7 +47,7 @@ def send_message():
         
 
 def shedule_thread():
-    schedule.every().second.do(send_message) # Здесь ты можешь задать периодичность отправки картинок
+    schedule.every().minute.do(send_message) # Здесь ты можешь задать периодичность отправки картинок
     while True:
         schedule.run_pending()
         time.sleep(1)
