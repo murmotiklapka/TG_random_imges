@@ -90,7 +90,11 @@ class DatabaseManager:
         with conn:
             cur = conn.cursor()
             cur.execute('SELECT * FROM prizes WHERE used = 0 ORDER BY RANDOM()')
-            return cur.fetchall()[0]
+            result = cur.fetchone()
+            if result is None:
+                return None
+
+            return result
     
     def get_winners_count(self, prize_id):
         conn = sqlite3.connect(self.database)
@@ -104,8 +108,8 @@ class DatabaseManager:
         with conn:
             cur = conn.cursor()
             cur.execute('''
-            SELECT user.user_name, COUNT(winners.prize_id) as count_prizes From winners
-            INNER JOIN users as user.user_id = winners.user_id
+            SELECT user.user_name, COUNT(winners.prize_id) AS count_prizes FROM winners
+            INNER JOIN users AS user ON user.user_id = winners.user_id
             GROUP BY winners.user_id
             ORDER BY count_prizes DESC
             LIMIT 10
