@@ -1,0 +1,5 @@
+pyTelegramBotAPI==4.37.0
+schedule==1.2.2
+opencv-python==5.0.0.93
+numpy==2.5.4
+requests==2.34.2
