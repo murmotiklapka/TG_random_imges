@@ -1,12 +1,15 @@
 from telebot import TeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from logic import *
+from logic import DatabaseManager, create_collage, get_score_image_paths, hide_img, BASE_DIR
+from io import BytesIO
+import cv2
 import schedule
 import threading
 import time
-from config import *
+from config import API_TOKEN, DATABASE
 
 bot = TeleBot(API_TOKEN)
+manager = DatabaseManager(DATABASE)
 
 def gen_markup(id):
     markup = InlineKeyboardMarkup()
@@ -25,7 +28,7 @@ def callback_query(call):
         res = manager.add_winner(user_id, prize_id)
         if res:
             img = manager.get_prize_img(prize_id)
-            with open(f'img/{img}', 'rb') as photo:
+            with open(BASE_DIR / 'img' / img, 'rb') as photo:
                 bot.send_photo(user_id, photo, caption="Поздравляем! Ты получил картинку!")
         else:
             bot.send_message(user_id, 'Ты уже получил картинку!')
@@ -43,7 +46,7 @@ def send_message():
     manager.mark_prize_used(prize_id)
     hide_img(img)
     for user in manager.get_users():
-        with open(f'hidden_img/{img}', 'rb') as photo:
+        with open(BASE_DIR / 'hidden_img' / img, 'rb') as photo:
             bot.send_photo(user, photo, reply_markup=gen_markup(id = prize_id))
         
 
@@ -52,6 +55,26 @@ def shedule_thread():
     while True:
         schedule.run_pending()
         time.sleep(1)
+
+@bot.message_handler(commands=['get_my_score'])
+def get_my_score(message):
+    try:
+        paths = get_score_image_paths(manager, message.chat.id)
+        if not paths:
+            bot.send_message(message.chat.id, 'Пока нет картинок для коллажа.')
+            return
+        collage = create_collage(paths)
+        ok, encoded = cv2.imencode('.jpg', collage)
+        if not ok:
+            raise ValueError('Не удалось закодировать коллаж')
+    except (OSError, ValueError, cv2.error):
+        bot.send_message(message.chat.id, 'Не удалось создать коллаж. Проверьте папки img и hidden_img.')
+        return
+    with BytesIO(encoded.tobytes()) as photo:
+        photo.name = 'my_score.jpg'
+        bot.send_photo(message.chat.id, photo,
+                       caption='Твоя коллекция! Полученные призы открыты, остальные скрыты.')
+
 
 @bot.message_handler(commands=['rating'])
 def handle_rating(message):
