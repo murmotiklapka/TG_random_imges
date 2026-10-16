@@ -47,6 +47,8 @@ class DatabaseManager:
     def add_prize(self, data):
         conn = sqlite3.connect(self.database)
         with conn:
+            existing = {x[0] for x in conn.execute('SELECT image FROM prizes')}
+            data = [x for x in data if x[0] not in existing]
             conn.executemany('''INSERT INTO prizes (image) VALUES (?)''', data)
             conn.commit()
 
@@ -89,12 +91,8 @@ class DatabaseManager:
         conn = sqlite3.connect(self.database)
         with conn:
             cur = conn.cursor()
-            cur.execute('SELECT * FROM prizes WHERE used = 0 ORDER BY RANDOM()')
-            result = cur.fetchone()
-            if result is None:
-                return None
-
-            return result
+            cur.execute('SELECT * FROM prizes WHERE used = 0 ORDER BY RANDOM() LIMIT 1')
+            return cur.fetchone()
     
     def get_winners_count(self, prize_id):
         conn = sqlite3.connect(self.database)
@@ -108,8 +106,8 @@ class DatabaseManager:
         with conn:
             cur = conn.cursor()
             cur.execute('''
-            SELECT user.user_name, COUNT(winners.prize_id) AS count_prizes FROM winners
-            INNER JOIN users AS user ON user.user_id = winners.user_id
+            SELECT users.user_name, COUNT(winners.prize_id) as count_prizes FROM winners
+            INNER JOIN users ON users.user_id = winners.user_id
             GROUP BY winners.user_id
             ORDER BY count_prizes DESC
             LIMIT 10
@@ -118,14 +116,17 @@ class DatabaseManager:
         
 def hide_img(img_name):
     image = cv2.imread(f'img/{img_name}')
+    if image is None:
+        raise FileNotFoundError(f'Не удалось прочитать img/{img_name}')
     blurred_image = cv2.GaussianBlur(image, (15, 15), 0)
     pixelated_image = cv2.resize(blurred_image, (30, 30), interpolation=cv2.INTER_NEAREST)
     pixelated_image = cv2.resize(pixelated_image, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST)
+    os.makedirs('hidden_img', exist_ok=True)
     cv2.imwrite(f'hidden_img/{img_name}', pixelated_image)
 
 if __name__ == '__main__':
     manager = DatabaseManager(DATABASE)
     manager.create_tables()
-    prizes_img = os.listdir('img')
+    prizes_img = [x for x in os.listdir('img') if not x.startswith('.')]
     data = [(x,) for x in prizes_img]
     manager.add_prize(data)
