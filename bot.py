@@ -17,8 +17,9 @@ def gen_markup(id):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
 
-    prize_id = call.data
+    prize_id = int(call.data)
     user_id = call.message.chat.id
+    bot.answer_callback_query(call.id)
 
     if manager.get_winners_count(prize_id) < 3:
         res = manager.add_winner(user_id, prize_id)
@@ -35,7 +36,7 @@ def callback_query(call):
 def send_message():
     prize = manager.get_random_prize()
     if prize is None:
-        print("Нет доступных призов в базе данных!")
+        print('Неиспользованные картинки закончились. Добавь новые в img/ и запусти logic.py')
         return
     prize_id = prize[0]
     img = manager.get_prize_img(prize_id)
@@ -55,7 +56,7 @@ def shedule_thread():
 @bot.message_handler(commands=['rating'])
 def handle_rating(message):
     res = manager.get_rating()
-    res = [f'| @{x[0]:<11} | {x[1]:<11}|\n{"_"*26}' for x in res]
+    res = [f'| @{str(x[0]):<11} | {x[1]:<11}|\n{"_"*26}' for x in res]
     res = '\n'.join(res)
     res = f'|USER_NAME    |COUNT_PRIZE|\n{"_"*26}\n' + res
     bot.send_message(message.chat.id, res)
@@ -77,15 +78,15 @@ def handle_start(message):
 
 
 def polling_thread():
-    bot.polling(none_stop=True)
+    bot.infinity_polling()
 
 if __name__ == '__main__':
     manager = DatabaseManager(DATABASE)
     manager.create_tables()
 
-    polling_thread = threading.Thread(target=polling_thread)
-    polling_shedule  = threading.Thread(target=shedule_thread)
+    thread_polling = threading.Thread(target=polling_thread)
+    thread_schedule = threading.Thread(target=shedule_thread)
 
-    polling_thread.start()
-    polling_shedule.start()
+    thread_polling.start()
+    thread_schedule.start()
   
